@@ -76,7 +76,7 @@ class _LocBase:
             obj.values = obj.values[i_idx, :, o_idx, d_idx][:, c_idx, ...]
         # Set the new dimension values.
         obj.kdims = obj.kdims[i_idx]
-        obj.vdims = obj.vdims[c_idx]
+        obj._vdims = obj._vdims[c_idx]
         obj.odims, obj.ddims = obj.odims[o_idx], obj.ddims[d_idx]
         # Set indexers.
         obj.iloc, obj.loc = Ilocation(obj), Location(obj)
@@ -162,7 +162,7 @@ class _LocBase:
         if type(norm_key[0]) is slice or type(norm_key[1]) is slice:
             cast(np.ndarray, cast(object, self.obj.values)).__setitem__(norm_key, values)    
         else:
-            #the getter uses arr[idx,:][:,idx] to get the Cartesian product, using np.ix_ on the setter to match
+            # the getter uses arr[idx,:][:,idx] to get the Cartesian product, using np.ix_ on the setter to match
             cast(np.ndarray, cast(object, self.obj.values)).__setitem__(
                 np.ix_(norm_key[0], norm_key[1]) + (norm_key[2], norm_key[3]), 
                 values
@@ -524,7 +524,7 @@ class TriangleSlicer:
                 return out
             keys: Sequence[str | int] = [key] if isinstance(key, (str, int, float, np.generic)) else key
             # Identify the position of each requested element within the valuation dimension.
-            idx = [list(self.vdims).index(item) for item in keys]
+            idx = [list(self._vdims).index(item) for item in keys]
             return self.iloc[:, idx]
 
     def __setitem__(
@@ -538,7 +538,7 @@ class TriangleSlicer:
         Parameters
         ----------
         key: str | int
-            The vdims label of the column to set.
+            The column label of the column to set.
         value: int | float | TriangleSlicer | Callable[[Triangle], TriangleSlicer]
             The value(s) to assign to the column. A callable defines a virtual
             (lazily-computed) column.
@@ -552,10 +552,10 @@ class TriangleSlicer:
         if callable(value):
             self.virtual_columns[key] = value
             if self.array_backend == "sparse":
-                if key not in self.vdims:
+                if key not in self._vdims:
                     k, v, o, d = self.values.shape
                     self.values.shape = k, v + 1, o, d
-                    self.vdims = np.append(self.vdims, key)
+                    self._vdims = np.append(self._vdims, key)
                 return
             # Create a placeholder column.
             value = (self.iloc[:, 0].copy() * xp.nan).set_backend(self.array_backend)
@@ -567,8 +567,8 @@ class TriangleSlicer:
             if value.array_backend != self.array_backend:
                 value = value.set_backend(self.array_backend)
         # Key exists in columns, replace data.
-        if key in self.vdims:
-            i = np.where(self.vdims == key)[0][0]
+        if key in self._vdims:
+            i = np.where(self._vdims == key)[0][0]
             # Case sparse backend.
             if self.array_backend == "sparse":
                 # Unwrap a Triangle-valued assignment to its raw array. A raw
@@ -606,7 +606,7 @@ class TriangleSlicer:
                 cast(np.ndarray, self.values)[:, i : i + 1] = value
         # Key is new, create a column and update data.
         else:
-            self.vdims = np.append(self.vdims, key)
+            self._vdims = np.append(self._vdims, key)
             if isinstance(value, (int, float, np.number)):
                 # Broadcast scalar across the Triangle's shape.
                 value = self.iloc[:, 0] * 0 + value

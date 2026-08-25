@@ -222,9 +222,21 @@ def test_origin_and_value_setters(raa):
             np.all(raa2.origin == raa.origin),
             np.all(raa2.development == raa.development),
             np.all(raa2.odims == raa.odims),
-            np.all(raa2.vdims == raa.vdims),
+            np.all(raa2.columns == raa.columns),
         )
     )
+
+
+def test_vdims_deprecation_warning(raa):
+    """Accessing or setting vdims should emit a FutureWarning."""
+    with pytest.warns(FutureWarning, match="'vdims' attribute is deprecated"):
+        v = raa.vdims
+    assert np.all(v == raa.columns.values)
+
+    raa2 = raa.copy()
+    with pytest.warns(FutureWarning, match="'vdims' attribute is deprecated"):
+        raa2.vdims = ["NewColumn"]
+    assert list(raa2.columns) == ["NewColumn"]
 
 
 def test_valdev1(qtr):
